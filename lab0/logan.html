@@ -1,0 +1,75 @@
+<table border=3 cellpadding=5>
+<td width=600 valign=top>
+Lab Zero.  HTML file for key logan:
+<p>
+For these questions, I have declared:
+<pre>
+  unsigned char *cp;
+  unsigned int *ip;
+  unsigned int x, y;
+  unsigned char w, z;
+</pre>
+Assume that you are running on a little-endian machine with 4-byte pointers.
+<p>
+In the following questions, give me the exact output of the <b>printf()</b> statements,
+assuming that <b>cp</b> and <b>ip</b> both equal <tt>0x580dcda0</tt>.
+</td><td width=200 valign=top>
+The 12 integers starting at address <tt>0x580dcda0</tt> are:
+<font size=+1><pre>
+     0x6d68774f
+     0x65726949
+     0x52725278
+     0x6c6a4546
+     0x41796b66
+     0x59736c78
+     0x7a595000
+     0x580dcdc8
+     0x6f54595a
+     0x45474e68
+     0x6546564a
+     0x0065654f
+</pre></font>
+</td></table>
+<pre>
+Question 0: printf("0x%08x\n", ip[3]);
+Question 1: printf("0x%08x\n", ip[6]);
+Question 2: printf("0x%02x\n", cp[11]);
+Question 3: printf("0x%02x\n", cp[19]);
+Question 4: printf("0x%02x\n", cp[35]);
+Question 5: printf("0x%02x\n", cp[42]);
+
+Question 6: printf("0x%08lx\n", (unsigned long) (ip+2));
+Question 7: printf("0x%08lx\n", (unsigned long) (ip+7));
+Question 8: printf("0x%08lx\n", (unsigned long) (cp+13));
+Question 9: printf("0x%08lx\n", (unsigned long) (cp+29));
+
+Question 10: printf("%s\n", cp+18);
+Question 11: printf("%s\n", cp+41);
+
+Question 12: w = 0x5b; z = 0xf0; printf("0x%02x\n", (w & z));
+Question 13: w = 0x5b; z = 0xf0; printf("0x%02x\n", (w | z));
+Question 14: w = 0xb8; z = 0x7e; printf("0x%02x\n", (w ^ z));
+Question 15: w = 0x1c; z = 0x32; z = ~z; printf("0x%02x\n", (w ^ z));
+
+Question 16: w = 0xdb; z = (w << 3); printf("0x%02x\n", z);
+Question 17: w = 0xf3; z = (w >> 3); printf("0x%02x\n", z);
+
+Question 18: x = 0xde8df36f; y = (x >> 12); printf("0x%08x\n", y);
+Question 19: x = 0xf02c4d5d; y = (x << 12); printf("0x%08x\n", y);
+
+Question 20: x = 0x7dfa2e1a; y = 0x0f0ff00f; printf("0x%08x\n", x | y);
+Question 21: x = 0x7dfa2e1a; y = 0x0f0ff00f; printf("0x%08x\n", x & y);
+Question 22: x = 0x7dfa2e1a; y = 0x0f0ff00f; printf("0x%08x\n", x & (~y));
+Question 23: x = 0x7dfa2e1a; y = 0x0f0ff00f; printf("0x%08x\n", x ^ y);
+
+Question 24: ip = (unsigned int *) ip[7]; printf("0x%08x\n", *ip);
+</pre>
+<hr>
+For your convenience, here are tables of characters to their ASCII codes in hex:
+<pre>
+Character:     A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  Q  R  S  T  U  V  W  X  Y  Z
+ASCII in hex: 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f 50 51 52 53 54 55 56 57 58 59 5a
+
+Character:     a  b  c  d  e  f  g  h  i  j  k  l  m  n  o  p  q  r  s  t  u  v  w  x  y  z
+ASCII in hex: 61 62 63 64 65 66 67 68 69 6a 6b 6c 6d 6e 6f 70 71 72 73 74 75 76 77 78 79 7a
+</pre>
