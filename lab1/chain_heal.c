@@ -1,3 +1,5 @@
+// Author: Logan Tillman
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -29,77 +31,18 @@ typedef struct global
 
 
 /* check if n1 can jump to n2 given a range */
-int isInRange(Node *n1, Node *n2, int range) {
-	int xDistance = n1->x - n2->x;
-	int yDistance = n1->y - n2->y;
-	int squaredDistance = (xDistance * xDistance) + (yDistance * yDistance);
+int isInRange(Node *n1, Node *n2, int range);
 
-	//printf("xD: %d yD: %d", xDistance, yDistance);
-	//printf("   %s %s -> distance %d : %d\n", n1->name, n2->name, squaredDistance, range * range);
-	return squaredDistance <= (range * range);
-}
+int calculateHealing(Node *person, double power);
+
+Node** createNodeArray(Node* node, int numNodes);
+
+void createAdjLists(Node **nodeArray, int numNodes, int jumpRange);
 
 /* perform DFS 
    "power" stores the points on the chain heal after "hop" hops. 
 */
-void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g) {
-	if (n->visited == 1 || hop > g->numJumps) {
-		return;
-	}
-	n->pp = calculateHealing(n, rint(power));
-	//printf("n->pp for %s is %d\n", n->name, n->pp);
-	//if (n != from) {
-	n->prev = from;
-		//printf("setting %s->prev to %s\n", n->name, from->name);
-	//}
-	n->visited = 1;
-	totalHealing += n->pp;
-	//printf("n = %s\n", n->name);
-	//printf("Node:%s Hop %d\n", n->name, hop);
-	//printf("Total healing: %d\n", totalHealing);
-	int i;
-	for (i = 0; i < n->adjSize; i++) {
-		if (from != n->adj[i]) {
-			double powerReduction = 1 - g->powerReduction;
-			DFS(n, n->adj[i], hop + 1, totalHealing, power * powerReduction, g);
-		}
-	}
-
-	if (totalHealing > g->bestHealing) {
-		g->bestHealing = totalHealing;
-		
-		Node *cursor = n;
-		i = 0;
-		g->bestPathLength = 0;
-		while (cursor != NULL && i < g->numJumps) {
-			//printf("bp::	%s\n", cursor->name);
-			g->bestPath[i] = cursor;
-			g->healing[i] = cursor->pp;	
-			g->bestPathLength++;
-			
-			if (cursor->prev == cursor) {
-				break;
-			}
-			else {
-				cursor = cursor->prev;
-				i++;
-			}
-		}
-	}
-
-	n->visited = 0;
-}
-
-int calculateHealing(Node *person, double power) {
-	int possiblePP = person->currentPP + power;
-
-	//printf("curr:%d max:%d poss:%d\n", person->currentPP, person->maxPP, possiblePP);
-
-	if (possiblePP > person->maxPP) {
-		return person->maxPP - person->currentPP;
-	}
-	return power;
-}
+void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g);
 
 int main(int argc, char **argv) {
 	if (argc < 6) {
@@ -131,22 +74,70 @@ int main(int argc, char **argv) {
 		newNode->prev = prev;
 		prev = newNode;
 		numNodes++;
-		//printf("%d %d %d %d %s prev=%s %d\n", newNode->x, newNode->y, newNode->currentPP, newNode->maxPP, newNode->name, newNode->prev->name, numNodes);
 	}
+
+	Node **nodeArray = createNodeArray(prev, numNodes);
+	int i, j = 0;
 	
-	Node **nodeArray;
-	nodeArray = malloc(numNodes * sizeof(Node *));
+	createAdjLists(nodeArray, numNodes, jumpRange);
+	
+	// Perform DFS on connected nodes
+	for (i = 0; i < numNodes; i++) {
+		nodeArray[i]->visited = 0;
+		for (j = 0; j < nodeArray[i]->adjSize; j++) {
+			nodeArray[i]->adj[j]->visited = 0;
+		}
+		
+		if (isInRange(nodeArray[numNodes - 1], nodeArray[i], initialRange)) {
+			int hop = 1;
+			int totalHealing = 0;
+			DFS(nodeArray[i], nodeArray[i], hop, totalHealing, initialPower, global);
+		}
+	}
+
+	for (i = global->bestPathLength - 1; i >= 0; i--) {
+		printf("%s %d\n", global->bestPath[i]->name, global->healing[i]);
+	}
+
+	printf("Total_Healing %d\n", global->bestHealing);
+	
+	return 0;
+}
+
+/* check if n1 can jump to n2 given a range */
+int isInRange(Node *n1, Node *n2, int range) {
+	int xDistance = n1->x - n2->x;
+	int yDistance = n1->y - n2->y;
+	int squaredDistance = (xDistance * xDistance) + (yDistance * yDistance);
+	
+	return squaredDistance <= (range * range);
+}
+
+int calculateHealing(Node *person, double power) {
+	int possiblePP = person->currentPP + power;
+
+	if (possiblePP > person->maxPP) {
+		return person->maxPP - person->currentPP;
+	}
+	return power;
+}
+
+Node** createNodeArray(Node* node, int numNodes) {
+	Node **nodeArray = malloc(numNodes * sizeof(Node *));
 	int i, j = 0;
 
-	// Create array of nodes
-	while (prev != NULL) {
-		nodeArray[i] = prev;
-		//printf("called %s\n", nodeArray[i]->name);
-		prev = prev->prev;
+	while (node != NULL) {
+		nodeArray[i] = node;
+		node = node->prev;
 		i++;
 	}
 
-	// Create adj list for each node
+	return nodeArray;
+}
+
+void createAdjLists(Node **nodeArray, int numNodes, int jumpRange) {
+	int i, j;
+
 	for (i = 0; i < numNodes; i++) {
 		nodeArray[i]->adjSize = 0;
 		for (j = 0; j < numNodes; j++) {
@@ -161,43 +152,58 @@ int main(int argc, char **argv) {
 
 		int k = 0;
 
-		//printf("%s's adj list: \n", nodeArray[i]->name);
 		for (j = 0; j < numNodes; j++) {
 			if (i == j) {
 				continue;
 			}
 			if (isInRange(nodeArray[i], nodeArray[j], jumpRange)) {
 				nodeArray[i]->adj[k] = nodeArray[j];
-				//printf("	%s\n", nodeArray[i]->adj[k]->name);
 				k++;
 			}
-			//else {
-			//	printf("%s is not in range of %s\n", nodeArray[j]->name, nodeArray[i]->name);
-			//}
 		}
 	}	
+}
 
-	for (i = 0; i < numNodes; i++) {
-		nodeArray[i]->visited = 0;
-		for (j = 0; j < nodeArray[i]->adjSize; j++) {
-			nodeArray[i]->adj[j]->visited = 0;
-		}
-		
-		if (isInRange(nodeArray[numNodes - 1], nodeArray[i], initialRange)) {
-			int hop = 1;
-			int totalHealing = 0;
-			//printf("Calling DFS on %s\n", nodeArray[i]->name);
-			DFS(nodeArray[i], nodeArray[i], hop, totalHealing, initialPower, global);
-		}
+/* perform DFS 
+   "power" stores the points on the chain heal after "hop" hops. 
+*/
+void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g) {
+	if (n->visited == 1 || hop > g->numJumps) {
+		return;
 	}
 
-	//printf("path size = %d\n", global->bestPathLength);
-
-	for (i = global->bestPathLength - 1; i >= 0; i--) {
-		printf("%s %d\n", global->bestPath[i]->name, global->healing[i]);
-	}
-
-	printf("Total_Healing %d\n", global->bestHealing);
+	int i;
+	n->visited = 1;
+	n->prev = from;
+	n->pp = calculateHealing(n, rint(power));
+	totalHealing += n->pp;
 	
-	return 0;
+	for (i = 0; i < n->adjSize; i++) {
+		if (from != n->adj[i]) {
+			double powerReduction = 1 - g->powerReduction;
+			DFS(n, n->adj[i], hop + 1, totalHealing, power * powerReduction, g);
+		}
+	}
+
+	if (totalHealing > g->bestHealing) {
+		g->bestHealing = totalHealing;
+		
+		Node *temp = n;
+		i = 0;
+		g->bestPathLength = 0;
+		while (temp != NULL && i < g->numJumps) {
+			g->bestPath[i] = temp;
+			g->healing[i] = temp->pp;	
+			g->bestPathLength++;
+			
+			if (temp->prev == temp) {
+				break;
+			}
+			
+			temp = temp->prev;
+			i++;
+		}
+	}
+
+	n->visited = 0;
 }
