@@ -59,6 +59,7 @@ void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g
 	totalHealing += n->pp;
 	//printf("n = %s\n", n->name);
 	//printf("Node:%s Hop %d\n", n->name, hop);
+	//printf("Total healing: %d\n", totalHealing);
 	int i;
 	for (i = 0; i < n->adjSize; i++) {
 		if (from != n->adj[i]) {
@@ -72,8 +73,8 @@ void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g
 		
 		Node *cursor = n;
 		i = 0;
-		g->bestPath = malloc(g->numJumps * sizeof(Node *));
-		g->healing = malloc(g->numJumps * sizeof(int *));
+		//g->bestPath = malloc(g->numJumps * sizeof(Node *));
+		//g->healing = malloc(g->numJumps * sizeof(int *));
 		g->bestPathLength = 0;
 		while (cursor != NULL && i < g->numJumps) {
 			//printf("::	%s\n", cursor->name);
@@ -116,8 +117,8 @@ int main(int argc, char **argv) {
 	const int initialPower = atoi(argv[4]);
 	global->powerReduction = atof(argv[5]);
 	global->bestHealing = 0;
-	//global->bestPath = malloc(sizeof(Node *) * global->numJumps);
-	//global->healing = malloc(sizeof(int *) * global->numJumps);
+	global->bestPath = malloc(sizeof(Node *) * global->numJumps);
+	global->healing = malloc(sizeof(int *) * global->numJumps);
 	int x, y, currentPP, maxPP;
 	char name[100];
 	int numNodes = 0;
