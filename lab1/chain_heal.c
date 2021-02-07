@@ -39,6 +39,8 @@ Node** createNodeArray(Node* node, int numNodes);
 
 void createAdjLists(Node **nodeArray, int numNodes, int jumpRange);
 
+void performDFSOnConnectedNodes(Node **nodeArray, int numNodes, int initialRange, int initialPower, Global *global);
+
 /* perform DFS 
    "power" stores the points on the chain heal after "hop" hops. 
 */
@@ -81,20 +83,8 @@ int main(int argc, char **argv) {
 	
 	createAdjLists(nodeArray, numNodes, jumpRange);
 	
-	// Perform DFS on connected nodes
-	for (i = 0; i < numNodes; i++) {
-		nodeArray[i]->visited = 0;
-		for (j = 0; j < nodeArray[i]->adjSize; j++) {
-			nodeArray[i]->adj[j]->visited = 0;
-		}
-		
-		if (isInRange(nodeArray[numNodes - 1], nodeArray[i], initialRange)) {
-			int hop = 1;
-			int totalHealing = 0;
-			DFS(nodeArray[i], nodeArray[i], hop, totalHealing, initialPower, global);
-		}
-	}
-
+	performDFSOnConnectedNodes(nodeArray, numNodes, initialRange, initialPower, global);
+	
 	for (i = global->bestPathLength - 1; i >= 0; i--) {
 		printf("%s %d\n", global->bestPath[i]->name, global->healing[i]);
 	}
@@ -162,6 +152,23 @@ void createAdjLists(Node **nodeArray, int numNodes, int jumpRange) {
 			}
 		}
 	}	
+}
+
+void performDFSOnConnectedNodes(Node **nodeArray, int numNodes, int initialRange, int initialPower, Global *global) {
+	int i, j;
+	
+	for (i = 0; i < numNodes; i++) {
+		nodeArray[i]->visited = 0;
+		for (j = 0; j < nodeArray[i]->adjSize; j++) {
+			nodeArray[i]->adj[j]->visited = 0;
+		}
+		
+		if (isInRange(nodeArray[numNodes - 1], nodeArray[i], initialRange)) {
+			int hop = 1;
+			int totalHealing = 0;
+			DFS(nodeArray[i], nodeArray[i], hop, totalHealing, initialPower, global);
+		}
+	}
 }
 
 /* perform DFS 
