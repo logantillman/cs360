@@ -48,10 +48,10 @@ void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g
 	}
 	n->pp = calculateHealing(n, rint(power));
 	//printf("n->pp for %s is %d\n", n->name, n->pp);
-	if (n != from) {
-		n->prev = from;
+	//if (n != from) {
+	n->prev = from;
 		//printf("setting %s->prev to %s\n", n->name, from->name);
-	}
+	//}
 	n->visited = 1;
 	totalHealing += n->pp;
 	//printf("n = %s\n", n->name);
@@ -70,20 +70,20 @@ void DFS(Node *from, Node *n, int hop, int totalHealing, double power, Global *g
 		
 		Node *cursor = n;
 		i = 0;
-		//g->bestPath = malloc(g->numJumps * sizeof(Node *));
-		//g->healing = malloc(g->numJumps * sizeof(int *));
 		g->bestPathLength = 0;
 		while (cursor != NULL && i < g->numJumps) {
-			//printf("::	%s\n", cursor->name);
+			//printf("bp::	%s\n", cursor->name);
 			g->bestPath[i] = cursor;
 			g->healing[i] = cursor->pp;	
+			g->bestPathLength++;
+			
 			if (cursor->prev == cursor) {
 				break;
 			}
-
-			cursor = cursor->prev;
-			g->bestPathLength++;
-			i++;
+			else {
+				cursor = cursor->prev;
+				i++;
+			}
 		}
 	}
 
