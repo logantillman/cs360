@@ -41,6 +41,7 @@ void createAdjLists(Node **nodeArray, int numNodes, int jumpRange);
 
 void performDFSOnConnectedNodes(Node **nodeArray, int numNodes, int initialRange, int initialPower, Global *global);
 
+void printOutput(Global *global);
 /* perform DFS 
    "power" stores the points on the chain heal after "hop" hops. 
 */
@@ -79,17 +80,12 @@ int main(int argc, char **argv) {
 	}
 
 	Node **nodeArray = createNodeArray(prev, numNodes);
-	int i, j = 0;
 	
 	createAdjLists(nodeArray, numNodes, jumpRange);
 	
 	performDFSOnConnectedNodes(nodeArray, numNodes, initialRange, initialPower, global);
 	
-	for (i = global->bestPathLength - 1; i >= 0; i--) {
-		printf("%s %d\n", global->bestPath[i]->name, global->healing[i]);
-	}
-
-	printf("Total_Healing %d\n", global->bestHealing);
+	printOutput(global);
 	
 	return 0;
 }
@@ -169,6 +165,16 @@ void performDFSOnConnectedNodes(Node **nodeArray, int numNodes, int initialRange
 			DFS(nodeArray[i], nodeArray[i], hop, totalHealing, initialPower, global);
 		}
 	}
+}
+
+void printOutput(Global *global) {
+	int i;
+	
+	for (i = global->bestPathLength - 1; i >= 0; i--) {
+		printf("%s %d\n", global->bestPath[i]->name, global->healing[i]);
+	}
+
+	printf("Total_Healing %d\n", global->bestHealing);
 }
 
 /* perform DFS 
