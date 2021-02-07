@@ -30,16 +30,13 @@ typedef struct global
 
 /* check if n1 can jump to n2 given a range */
 int isInRange(Node *n1, Node *n2, int range) {
-	int distance = 0;
-	if (n1->x > n2->x)
-		distance += n1->x - n2->x;
-	else
-		distance += n2->x - n1->x;
-	if (n1->y > n2->y)
-		distance += n1->y - n2->y;
-	else
-		distance += n2->y - n1->y;
-	return distance <= range;
+	int xDistance = n1->x - n2->x;
+	int yDistance = n1->y - n2->y;
+	int squaredDistance = (xDistance * xDistance) + (yDistance * yDistance);
+
+	//printf("xD: %d yD: %d", xDistance, yDistance);
+	//printf("   %s %s -> distance %d : %d\n", n1->name, n2->name, squaredDistance, range * range);
+	return squaredDistance <= (range * range);
 }
 
 /* perform DFS 
@@ -174,6 +171,9 @@ int main(int argc, char **argv) {
 				//printf("	%s\n", nodeArray[i]->adj[k]->name);
 				k++;
 			}
+			//else {
+			//	printf("%s is not in range of %s\n", nodeArray[j]->name, nodeArray[i]->name);
+			//}
 		}
 	}	
 
