@@ -29,7 +29,8 @@ int main(int argc, char **argv) {
 	// Error check code file
 	// Read the code file
 	file = fopen(codeFile, "r");
-	
+	strcpy(word, "");
+	strcpy(codeBuffer, "");
 	while (fread(codeBuffer, sizeof(char), 1, file) != 0) {
 		if (strcmp(codeBuffer, "") == 0) {
 			if (strcmp(word, "") != 0) {
@@ -89,10 +90,12 @@ int main(int argc, char **argv) {
 	buffSize = ceil(numToRead / 8.0);
 //	printf("c: %d | 0x%08x bs: %d\n", numToRead, numToRead, buffSize);
 
-//	printf("Allocating %d bytes to binaryString\n", numToRead);
-	char *binaryString = (char *) malloc((numToRead * sizeof(char)) + 1);
+//	printf("Allocating %d bytes to binaryString\n", (buffSize * 8) + 1);
+	char *binaryString = (char *) malloc((buffSize * 8) + 1);
 	char *searchString = (char *) malloc((numToRead * sizeof(char)) + 1);
-
+	word = (char *) malloc((numToRead * sizeof(char)) + 1);
+//	printf("Allocating %d to word\n", (numToRead * sizeof(char)) + 1);
+		
 	fseek(file, 0, SEEK_SET);
 	int t;
 	
@@ -103,19 +106,21 @@ int main(int argc, char **argv) {
 //		printf("%d 0x%2x\n", c, c);
 		strcat(binaryString + length, decToBinary(c));
 		length += strlen(binaryString + length);
+//		if (strlen(binaryString) >= numToRead) printf("BIG PROBLEM -- binary ntr: %d len: %d\n", numToRead, length);
 	}
 
 //	printf("End string %s\n", binaryString);
 
 	JRB tmp;
-//	int wordLength = 0;
+	int wordLength = 0;
 	length = 0;
 	strcpy(searchString, "");
-//	strcpy(word, "");
+	strcpy(word, "");
 	for (i = 0; i < numToRead; i++) {
 //		printf("AT %c\n", binaryString[i]);
 		char *character = binaryString + i;
 		strncat(searchString + length, character, 1);
+//		if (strlen(searchString) >= numToRead) printf("BIG PROBLEM -- search\n");
 		length++;
 		//tmp = jrb_find_str(tree, searchString);
 		if (strlen(searchString) > longestPossibleKey) {
@@ -126,10 +131,11 @@ int main(int argc, char **argv) {
 
 		tmp = jrb_find_str(tree, searchString);
 		if (tmp != NULL) {
-			printf(tmp->val.v);
-			//strcat(word + wordLength, tmp->val.v);
+			//printf(tmp->val.v);
+			strcat(word + wordLength, tmp->val.v);
 			strcpy(searchString, "");
-			//wordLength += strlen(word + wordLength);
+			wordLength += strlen(word + wordLength);
+//			printf("adding [%s] wordlength = %d\n", tmp->val.v, wordLength);
 			length = 0;
 		}
 		else {
@@ -138,7 +144,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-//	printf("%s", word);
+	printf("%s", word);
 	fclose(file);
 	// Error check the input file 
 
