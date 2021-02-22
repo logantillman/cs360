@@ -36,8 +36,10 @@ int main(int argc, char **argv) {
 			if (strcmp(word, "") != 0) {
 				i++;
 				if (i == 2) {
-					key = (char *) malloc(length * sizeof(char));
-					strcpy(key, word);
+					//key = (char *) malloc(length * sizeof(char));
+					//strcpy(key, word);
+					key = strdup(word);
+//					printf("key: %s\n", key);
 					jrb_insert_str(tree, key, new_jval_v((void *) val));
 					if (strlen(key) > longestPossibleKey) {
 						longestPossibleKey = strlen(key);
@@ -46,8 +48,9 @@ int main(int argc, char **argv) {
 					i = 0;
 				}
 				else {
-					val = (char *) malloc(length * sizeof(char));
-					strcpy(val, word);
+					//val = (char *) malloc(length * sizeof(char));
+					//strcpy(val, word);
+					val = strdup(word);
 				}
 			}
 			strcpy(word, "");
@@ -59,10 +62,10 @@ int main(int argc, char **argv) {
 		}
 	}
 	
-	JRB tmpTree;
-	jrb_traverse(tmpTree, tree) {
+//	JRB tmpTree;
+//	jrb_traverse(tmpTree, tree) {
 //		printf("key: [%s] value: [%s]\n", tmpTree->key.v, tmpTree->val.v);
-	}
+//	}
 
 	free(codeBuffer);
 	free(word);
