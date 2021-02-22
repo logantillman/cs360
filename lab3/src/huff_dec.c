@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
 					jrb_insert_str(tree, key, new_jval_v((void *) val));
 					if (strlen(key) > longestPossibleKey) {
 						longestPossibleKey = strlen(key);
+//						printf("LPK: %d - %s\n", longestPossibleKey, key);
 					}
 					i = 0;
 				}
@@ -59,10 +60,11 @@ int main(int argc, char **argv) {
 	
 	JRB tmpTree;
 	jrb_traverse(tmpTree, tree) {
-//		printf("key: %s value: %s\n", tmpTree->key.v, tmpTree->val.v);
+//		printf("key: [%s] value: [%s]\n", tmpTree->key.v, tmpTree->val.v);
 	}
 
 	free(codeBuffer);
+	free(word);
 	fclose(file);
 	
 	int c, numToRead;
@@ -106,30 +108,37 @@ int main(int argc, char **argv) {
 //	printf("End string %s\n", binaryString);
 
 	JRB tmp;
-	int wordLength = 0;
+//	int wordLength = 0;
 	length = 0;
 	strcpy(searchString, "");
-	strcpy(word, "");
+//	strcpy(word, "");
 	for (i = 0; i < numToRead; i++) {
 //		printf("AT %c\n", binaryString[i]);
 		char *character = binaryString + i;
 		strncat(searchString + length, character, 1);
 		length++;
-		tmp = jrb_find_str(tree, searchString);
+		//tmp = jrb_find_str(tree, searchString);
 		if (strlen(searchString) > longestPossibleKey) {
+			printf("%d - %s\n", strlen(searchString), searchString);
 			fprintf(stderr, "Unrecognized bits\n");
 			return -1;
 		}
+
 		tmp = jrb_find_str(tree, searchString);
 		if (tmp != NULL) {
-			strcat(word + wordLength, tmp->val.v);
+			printf(tmp->val.v);
+			//strcat(word + wordLength, tmp->val.v);
 			strcpy(searchString, "");
-			wordLength += strlen(word + wordLength);
+			//wordLength += strlen(word + wordLength);
 			length = 0;
+		}
+		else {
+//			if (strcmp(searchString, "00000") == 0) printf("AHHHHHH %s %s\n", searchString, jrb_find_str(tree, "00000")->val.v);
+	//		printf("Couldn't find %s\n", searchString);
 		}
 	}
 
-	printf("%s", word);
+//	printf("%s", word);
 	fclose(file);
 	// Error check the input file 
 
