@@ -107,8 +107,10 @@ int main(int argc, char **argv) {
 	for (i = 0; i < buffSize; i++) {
 		c = fgetc(file);
 //		printf("%d 0x%2x\n", c, c);
-		strcat(binaryString + length, decToBinary(c));
+		char *binary = decToBinary(c);
+		strcat(binaryString + length, binary);
 		length += strlen(binaryString + length);
+		free(binary);
 //		if (strlen(binaryString) >= numToRead) printf("BIG PROBLEM -- binary ntr: %d len: %d\n", numToRead, length);
 	}
 
@@ -127,7 +129,6 @@ int main(int argc, char **argv) {
 		length++;
 		//tmp = jrb_find_str(tree, searchString);
 		if (strlen(searchString) > longestPossibleKey) {
-			printf("%d - %s\n", strlen(searchString), searchString);
 			fprintf(stderr, "Unrecognized bits\n");
 			return -1;
 		}
