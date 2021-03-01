@@ -4,13 +4,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <time.h>
 #include "fields.h"
 #include "dllist.h"
 
+/* Processes the header files */
 long processHeaderFiles(Dllist hList);
 
+/* Processes the C files */
 long processCFiles(Dllist cList, Dllist fList, long hTime);
+
+/* Finds the total length of the list's elements (including spaces) */
+int findLength(Dllist list);
 
 int main(int argc, char **argv) {
 	
@@ -24,11 +28,9 @@ int main(int argc, char **argv) {
 
 	if (argc == 1) {
 		is = new_inputstruct("fmakefile");
-	//	printf("Opening file \"%s\"\n", "fmakefile");
 	}
 	else {
 		is = new_inputstruct(argv[1]);
-	//	printf("Opening file \"%s\"\n", argv[1]);
 	}
 
 	// read each line of the file and print to stdout
@@ -54,7 +56,7 @@ int main(int argc, char **argv) {
 			}
 			else if (strcmp(typeOfFile, "E") == 0) {
 				if (executableName != NULL) {
-					printf("fmakefile (%d) cannot have more than one E line\n", is->line);
+					fprintf(stderr, "fmakefile (%d) cannot have more than one E line\n", is->line);
 					return -1;
 				}
 				executableName = strdup(is->fields[i]);
@@ -72,46 +74,46 @@ int main(int argc, char **argv) {
 	}
 	
 	int hTime = processHeaderFiles(hList);
-	//printf("H file max time: %d\n", hTime);
+	
+	/* Exiting if we ran into an error while traversing the H files */
+	if (hTime == -1) {
+		return -1;
+	}
 
 	int cReturn = processCFiles(cList, fList, hTime);
 
+	/* Exiting if we ran into an error while traversing the C files */
+	if (cReturn == -1) {
+		return -1;
+	}
+
 	struct stat buf;
 
-	stat(executableName, &buf);
+	int exists = stat(executableName, &buf);
 
-	if (cReturn == 1 || cReturn > buf.st_mtime) {
-		int cFilesLength = 0;
-		int fFilesLength = 0;
-		int lFilesLength = 0;
+	if (exists < 0 || cReturn == 1 || cReturn > buf.st_mtime) {
+		int cFilesLength = findLength(cList);
+		int fFilesLength = findLength(fList);
+		int lFilesLength = findLength(lList);
 		Dllist tmp;
-
-		dll_traverse(tmp, cList) cFilesLength += strlen(tmp->val.s) + 1;
-		dll_traverse(tmp, fList) fFilesLength += strlen(tmp->val.s) + 1;
-		dll_traverse(tmp, lList) lFilesLength += strlen(tmp->val.s) + 1;
-
 
 		int totalFilesLength = cFilesLength + fFilesLength + lFilesLength;
 		char *oCompileString = malloc((7 + totalFilesLength + strlen(executableName)) * sizeof(char));
-		//printf("Allocated oCompile: %d\n", 7 + totalFilesLength + strlen(executableName));
-		int oStringLength = 0;
-		strcpy(oCompileString + oStringLength, "gcc -o");
-		oStringLength = strlen(oCompileString);
+
+		strcpy(oCompileString, "gcc -o");
+		int oStringLength = strlen(oCompileString);
 		strcat(oCompileString + oStringLength, " ");
-		oStringLength = strlen(oCompileString);
 		strcat(oCompileString + oStringLength, executableName);
 		oStringLength = strlen(oCompileString);
 		
 		dll_traverse(tmp, fList) {
 			strcat(oCompileString + oStringLength, " ");
-			oStringLength = strlen(oCompileString);
 			strcat(oCompileString + oStringLength, tmp->val.s);
 			oStringLength = strlen(oCompileString);
 		}
 		
 		dll_traverse(tmp, cList) {
 			strcat(oCompileString + oStringLength, " ");
-			oStringLength = strlen(oCompileString);
 			char *cFileName = strdup(tmp->val.s);
 			cFileName[strlen(cFileName) - 1] = 'o';
 			strcat(oCompileString + oStringLength, cFileName);
@@ -121,12 +123,12 @@ int main(int argc, char **argv) {
 		
 		dll_traverse(tmp, lList) {
 			strcat(oCompileString + oStringLength, " ");
-			oStringLength = strlen(oCompileString);
 			strcat(oCompileString + oStringLength, tmp->val.s);
 			oStringLength = strlen(oCompileString);
 		}
 		if (system(oCompileString) == -1) {
 			fprintf(stderr, "Command failed.  Fakemake exiting\n");
+			return -1;
 		}
 		printf("%s\n", oCompileString);
 	}
@@ -148,30 +150,32 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+/* Processes the header files */
 long processHeaderFiles(Dllist hList) {
 	Dllist tmp;
 	struct stat buf;
 	long maxTime;
 	int exists;
 
+	/* Initializing maxTime to the first element in the list */
 	if (!dll_empty(hList)) {
 		exists = stat(hList->flink->val.s, &buf);
 		if (exists < 0) { 
-			printf("Error. H file %s doesn't exist\n", hList->flink->val.s);
+			fprintf(stderr, "fmakefile: %s: No such file or directory\n", hList->flink->val.s);
 			return -1;
 		}
 		
 		maxTime = buf.st_mtime;
 	}
 
+	/* Finding the maxTime for the header files */
 	dll_traverse(tmp, hList) {
 		exists = stat(tmp->val.s, &buf);
 		if (exists < 0) {
-			printf("Error in the H file loop, %s doesn't exist\n", tmp->val.s);
+			fprintf(stderr, "fmakefile: %s: No such file or directory\n", tmp->val.s);
 			return -1;
 		}
 	
-		//printf("Max time: %d Curr time: %d\n", buf.st_mtime);
 		if (buf.st_mtime > maxTime) {
 			maxTime = buf.st_mtime;
 		}
@@ -180,6 +184,7 @@ long processHeaderFiles(Dllist hList) {
 	return maxTime;
 }
 
+/* Processes the C files */
 long processCFiles(Dllist cList, Dllist fList, long hTime) {
 	Dllist tmp;
 	struct stat buf;
@@ -187,22 +192,23 @@ long processCFiles(Dllist cList, Dllist fList, long hTime) {
 	int maxTime;
 	int exists; 
 
+	/* Assigning maxTime to the first element in the list */
 	if (!dll_empty(cList)) {
 		exists = stat(cList->flink->val.s, &buf);
 		if (exists < 0) {
-			printf("Error. C file %s doesn't exist\n", cList->flink->val.s);
+			fprintf(stderr, "fmakefile: %s: No such file or directory\n", cList->flink->val.s);
 			return -1;
 		}
 		maxTime = buf.st_mtime; 
 	}
 
-	int flagLength = 0;
-	dll_traverse(tmp, fList) flagLength += strlen(tmp->val.s) + 1;
+	int flagLength = findLength(fList);
 
+	/* Finding the maxTime of the C list and compiling the files */
 	dll_traverse(tmp, cList) {
 		exists = stat(tmp->val.s, &buf);
 		if (exists < 0) {
-			printf("Error in the C file loop, %s doesn't exist\n", tmp->val.s);
+			fprintf(stderr, "fmakefile: %s: No such file or directory\n", tmp->val.s);
 			return -1;
 		}
 		long cTime = buf.st_mtime;
@@ -210,50 +216,58 @@ long processCFiles(Dllist cList, Dllist fList, long hTime) {
 		char *oFile = strdup(cFile);
 		int len = strlen(cFile);
 		oFile[len - 1] = 'o';
-		//printf("File: %s looking for %s\n", tmp->val.s, oFile);
 		
 		exists = stat(oFile, &buf);
+
+		/* Determing if we need to re-compile the C file */
 		if (exists < 0 || buf.st_mtime < cTime || buf.st_mtime < hTime) {
-			//printf("Need to remake this file\n");
 			char *cFileString = (char *) malloc((strlen(oFile) + flagLength + 7) * sizeof(char));
-			strcpy(cFileString, "");
-			int cStringLength = 0;
-			strcat(cFileString + cStringLength, "gcc -c");
-			cStringLength += strlen(cFileString);
+			strcpy(cFileString, "gcc -c");
+			int cStringLength = strlen(cFileString);
 
 			Dllist tmp2;
 			dll_traverse(tmp2, fList) {
 				strcat(cFileString + cStringLength, " ");
-				cStringLength = strlen(cFileString);
 				strcat(cFileString + cStringLength, tmp2->val.s);
 				cStringLength = strlen(cFileString);
-				//printf("[%s] len: %d\n", cFileString, cStringLength);
 			}
 
 			strcat(cFileString + cStringLength, " ");
-			cStringLength = strlen(cFileString);
 			strcat(cFileString + cStringLength, cFile);
 			if (system(cFileString) == -1) {
 				fprintf(stderr, "Command failed.  Fakemake exiting\n");
+				return -1;
 			}
 			remadeFiles = 1;
 			printf("%s\n", cFileString);
 		}
 		else {
+
+			/* Keeping track of the maxTime */
 			if (buf.st_mtime > maxTime) {
 				maxTime = buf.st_mtime;
 			}
 		}
+
+		/* Freeing the temporary files */
 		free(cFile);
 		free(oFile);
 	}
 
 	if (remadeFiles) {
-		//printf("Had to remake files, returning 1\n");
 		return 1;
 	}
 	else {
-		//printf("Returning max time: %d\n", maxTime);
 		return maxTime;
 	}
+}
+
+/* Finds the total length of the list's elements (including spaces) */
+int findLength(Dllist list) {
+	Dllist tmp;
+	int length = 0;
+
+	dll_traverse(tmp, list) length += strlen(tmp->val.s) + 1;
+
+	return length;
 }
