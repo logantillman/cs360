@@ -16,6 +16,12 @@ long processCFiles(Dllist cList, Dllist fList, long hTime);
 /* Finds the total length of the list's elements (including spaces) */
 int findLength(Dllist list);
 
+/* Frees the specified list */
+void freeList(Dllist list);
+
+/* Frees all of the lists */
+void freeAll(Dllist cList, Dllist hList, Dllist lList, Dllist fList);
+
 int main(int argc, char **argv) {
 	
 	IS is;
@@ -33,7 +39,7 @@ int main(int argc, char **argv) {
 		is = new_inputstruct(argv[1]);
 	}
 
-	// read each line of the file and print to stdout
+	/* Reading input into DLLists */
 	while (get_line(is) >= 0) {
 		if (is->NF == 0) {
 			continue;
@@ -57,18 +63,17 @@ int main(int argc, char **argv) {
 			else if (strcmp(typeOfFile, "E") == 0) {
 				if (executableName != NULL) {
 					fprintf(stderr, "fmakefile (%d) cannot have more than one E line\n", is->line);
+					freeAll(cList, hList, lList, fList);
 					return -1;
 				}
 				executableName = strdup(is->fields[i]);
 			}
-			else {
-				printf("Line doesn't match any types\n");
-				return -1;
-			}
 		}
 	}
 
+	/* If no executable was specified */
 	if (executableName == NULL) {
+		freeAll(cList, hList, lList, fList);
 		fprintf(stderr, "No executable specified\n");
 		return -1;
 	}
@@ -77,6 +82,7 @@ int main(int argc, char **argv) {
 	
 	/* Exiting if we ran into an error while traversing the H files */
 	if (hTime == -1) {
+		freeAll(cList, hList, lList, fList);
 		return -1;
 	}
 
@@ -84,6 +90,7 @@ int main(int argc, char **argv) {
 
 	/* Exiting if we ran into an error while traversing the C files */
 	if (cReturn == -1) {
+		freeAll(cList, hList, lList, fList);
 		return -1;
 	}
 
@@ -126,27 +133,17 @@ int main(int argc, char **argv) {
 			strcat(oCompileString + oStringLength, tmp->val.s);
 			oStringLength = strlen(oCompileString);
 		}
-		if (system(oCompileString) == -1) {
+		printf("%s\n", oCompileString);
+		if (system(oCompileString)) {
 			fprintf(stderr, "Command failed.  Fakemake exiting\n");
 			return -1;
 		}
-		printf("%s\n", oCompileString);
 	}
 	else {
 		printf("%s up to date\n", executableName);
 	}
-/*
-	Dllist tmp;
-	printf("C list:\n");
-	dll_traverse(tmp, cList) printf("%s\n", tmp->val.s);
-	printf("H list:\n");
-	dll_traverse(tmp, hList) printf("%s\n", tmp->val.s);
-	printf("L list:\n");
-	dll_traverse(tmp, lList) printf("%s\n", tmp->val.s);
-	printf("F list:\n");
-	dll_traverse(tmp, fList) printf("%s\n", tmp->val.s);
-	printf("E Name: %s\n", executableName);
-*/
+
+	freeAll(cList, hList, lList, fList);
 	return 0;
 }
 
@@ -234,12 +231,12 @@ long processCFiles(Dllist cList, Dllist fList, long hTime) {
 
 			strcat(cFileString + cStringLength, " ");
 			strcat(cFileString + cStringLength, cFile);
-			if (system(cFileString) == -1) {
-				fprintf(stderr, "Command failed.  Fakemake exiting\n");
+			printf("%s\n", cFileString);
+			if (system(cFileString)) {
+				fprintf(stderr, "Command failed.  Exiting\n");
 				return -1;
 			}
 			remadeFiles = 1;
-			printf("%s\n", cFileString);
 		}
 		else {
 
@@ -270,4 +267,21 @@ int findLength(Dllist list) {
 	dll_traverse(tmp, list) length += strlen(tmp->val.s) + 1;
 
 	return length;
+}
+
+/* Frees the specified list */
+void freeList(Dllist list) {
+	Dllist tmp;
+	dll_traverse(tmp, list) {
+		free(tmp->val.s);
+	}
+	free_dllist(list);
+}
+
+/* Frees all of the lists */
+void freeAll(Dllist cList, Dllist hList, Dllist lList, Dllist fList) {
+	freeList(cList);
+	freeList(hList);
+	freeList(lList);
+	freeList(fList);
 }
