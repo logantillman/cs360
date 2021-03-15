@@ -8,15 +8,11 @@
 #include "jrb.h"
 #include "dllist.h"
 
-void traverseDirectory(const char *fileName, JRB iNodeTree);
+void traverseDirectory(const char *fileName, JRB iNodeTree, char *relativePath);
 
-//void printInfo(const char *dirFileName);
+char *findRelativePath(char *pathName);
 
-//void printNewInfo(const char *dirFileName);
-
-//void printFileInfo(const char *dirFileName);
-
-void printFileNameSize(const char *fileName);
+void printFileNameSize(int fileNameSize);
 
 void printHexString(const char *string);
 
@@ -41,16 +37,23 @@ int main(int argc, char **argv) {
 	}	
 
 	JRB iNodeTree = make_jrb();
-	traverseDirectory(argv[1], iNodeTree);
+	
+	char *tmp = strdup(argv[1]);
+	char *relativePath = findRelativePath(tmp);
+	//printf("%s %s\n", argv[1], relativePath);
+	traverseDirectory(argv[1], iNodeTree, relativePath);
 
+	free(tmp);
 	return 0;
 }
 
-void traverseDirectory(const char *fileName, JRB iNodeTree) {
+void traverseDirectory(const char *fileName, JRB iNodeTree, char *relativePath) {
 	DIR *d = opendir(fileName);
+	
+	/* If directory failed to open, print an error */
 	if (d == NULL) {
 		fprintf(stderr, "Couldn't open %s directory\n", fileName);
-		//exit(1);
+		exit(1);
 	}
 	
 	struct dirent *de;
@@ -62,197 +65,139 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	int dirFileNameSize = fileNameSize + 10;
 	char *dirFileName = (char *) malloc(sizeof(char) * dirFileNameSize);
 
+	/* Error checking for failed malloc */
 	if (dirFileName == NULL) {
 		fprintf(stderr, "malloc error\n");
-		//exit(1);
+		exit(1);
 	}
 
-	//printInfo(fileName);
-	//printNewInfo(fileName);
-	
+	/* Printing out the info for the directory */
+	exists = stat(fileName, &buf);
+	if (exists < 0) {
+		fprintf(stderr, "Couldn't stat %s\n", fileName);
+		exit(1);
+	}
+
+	/* Printing mandatory information */
+	printFileNameSize(strlen(relativePath));
+	printHexString(relativePath);
+	printINode(buf.st_ino);
+
+	/* Printing if first time inode is seen */
+	JRB iNodeLoc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
+	if (iNodeLoc == NULL && S_ISDIR(buf.st_mode)) {
+		jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
+		printMode(buf.st_mode);
+		printModTime(buf.st_mtime);
+	}
+
+	/* Adding the / to the fileName */
 	strcpy(dirFileName, fileName);
 	strcat(dirFileName + fileNameSize, "/");
 
-	exists = stat(fileName, &buf);
-
-	if (exists < 0) {
-		fprintf(stderr, "Couldn't stat %s\n", fileName);
-	}
-	else {
-		printFileNameSize(fileName);
-		printHexString(fileName);
-		printINode(buf.st_ino);
-		printMode(buf.st_mode);			// Might have to check if first time seen
-		printModTime(buf.st_mtime);		// Might have to check if first time seen
-	}
-	//printf("fn size: %d\n", strlen(dirFileName));
-	//printf("fn: %s\n", dirFileName);
-	//printf("inode %d\n", buf.st_ino);
-//	printf("dirFileName: %s\n", dirFileName);
-
+	/* Reading everything in the directory */
 	for (de = readdir(d); de != NULL; de = readdir(d)) {
 		if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
 			continue;
 		}
+
 		int sz = strlen(de->d_name);
 		if (dirFileNameSize < fileNameSize + sz + 2) {
 			dirFileNameSize = fileNameSize + sz + 10;
 			dirFileName = realloc(dirFileName, dirFileNameSize);
 		}
 		strcpy(dirFileName + fileNameSize + 1, de->d_name);
-//		printf("dirFileName 2: %s\n", dirFileName);
 
 		exists = stat(dirFileName, &buf);
 		if (exists < 0) {
 			fprintf(stderr, "Couldn't stat %s\n", de->d_name);
-			//exit(1);
-		}
-		else {
-//			printf("Opened %s\n", dirFileName);
+			exit(1);
 		}
 		
-		JRB loc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
-
-		if (loc == NULL) {
-//			printf("Inserting %d into tree\n", buf.st_ino);
+		/* Checking if the file inode already exists in the tree */
+		iNodeLoc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
+		if (iNodeLoc == NULL && !S_ISDIR(buf.st_mode)) {
 			jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
 		}
-		else {
-			//printf("%s already exists\n", dirFileName);
-		}
 
+		/* If it's a directory, add it to the list of directories to visit */
 		if (S_ISDIR(buf.st_mode) && strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
 			dll_append(dirList, new_jval_s(strdup(dirFileName)));
 		}
-		else {
-			//printInfo(dirFileName);
-			printFileNameSize(dirFileName);
-			printHexString(dirFileName);
+	
+		/* If it's a file, print out the necessary info */
+		else if (!S_ISDIR(buf.st_mode)) {
+			char *tmp = strdup(dirFileName);
+			char *fn = findRelativePath(tmp);
+			char *filePath = (char *) malloc((strlen(relativePath) + 1 + strlen(fn)) * sizeof(char));
+			strcpy(filePath, relativePath);
+			int filePathSize = strlen(filePath);
+			strcat(filePath + filePathSize, "/");
+			strcat(filePath + filePathSize + 1, fn);
+
+			printFileNameSize(strlen(filePath));
+			printHexString(filePath);
 			printINode(buf.st_ino);
 
-			if (loc == NULL) {
+			if (iNodeLoc == NULL) {
 				printMode(buf.st_mode);
 				printModTime(buf.st_mtime);
 				printFileSize(dirFileName);
 				printBytes(dirFileName);
-				//printNewInfo(dirFileName);
-				//printFileInfo(dirFileName);
 			}
+			free(tmp);
 		}
 	}
 	
+	/* Close the current directory */
 	closedir(d);
 	
+	/* Recursively traverse the nested directories */
 	Dllist tmp;
-
 	dll_traverse(tmp, dirList) {
-		traverseDirectory(tmp->val.s, iNodeTree);
+		printf("%s Dir list: %s\n", relativePath, tmp->val.s);
+		int relativePathSize = strlen(relativePath);
+		strcat(relativePath + relativePathSize, "/");
+		char *tmpString = strdup(tmp->val.s);
+		strcat(relativePath + relativePathSize + 1, findRelativePath(tmpString));
+		printf("New dir: %s\n", relativePath);
+		free(tmpString);
+		traverseDirectory(tmp->val.s, iNodeTree, relativePath);
 	}
 
+	/* Free all of the directories in the list */
 	dll_traverse(tmp, dirList) {
 		free(tmp->val.s);
 	}
+
+	/* Free the memory allocated for the list and the directory file name */
 	free_dllist(dirList);
 	free(dirFileName);
-	
-//	printf("Closed %s\n", fileName);
 }
 
-/*
-void printInfo(const char *dirFileName) {
-	struct stat buf;
-	int exists = stat(dirFileName, &buf);
+char *findRelativePath(char *pathName) {
+	char *foundSlash = strtok(pathName, "/");
+	char *relative;
 
-	if (exists < 0) {
-		fprintf(stderr, "Error in printInfo\n");
-		//exit(1);
+	while (foundSlash != NULL) {
+		relative = foundSlash;
+		foundSlash = strtok(NULL, "/");
 	}
-	else {
-		//printf("\nfn size: %d\n", strlen(dirFileName));
-		//printf("Printing fileNameLength\n");
-		printLittleEndian(strlen(dirFileName), 4);
-		//printf("fn: %s\n", dirFileName);
-		//printf("Printing fileName\n");
-		printf(" %s", dirFileName);
-		printString(dirFileName);
-		//printf("inode %d\n", buf.st_ino);
-		//printf("Printing inode\n");
-		printLittleEndian(buf.st_ino, 8);
-	}
+	return relative;
 }
 
-void printNewInfo(const char *dirFileName) {
-	struct stat buf;
-	int exists = stat(dirFileName, &buf);
-
-	if (exists < 0) {
-		fprintf(stderr, "Error in printNewInfo\n");
-		//exit(1);
-	}
-	else {
-		//printf("mode: %x\n", buf.st_mode);
-		//printf("Printing mode\n");
-		printLittleEndian(buf.st_mode, 4);
-		//printf("mod time: %x\n", buf.st_mtime);
-		//printf("Printfing mod time\n");
-		printLittleEndian(buf.st_mtime, 8);
-	}
-}
-
-void printFileInfo(const char *dirFileName) {
-	FILE *file = fopen(dirFileName, "r");
-	int bufferSize = 10000;
-	char *codeBuffer = (char *) malloc(bufferSize * sizeof(char));
-	char *word = (char *) malloc(bufferSize * sizeof(char));
-	int wordLength = 0;
-	while (fread(codeBuffer, sizeof(char), 1, file) != 0) {
-		//if (strcmp(codeBuffer, "\n") != 0) {
-			//printf("Concating %s\n", codeBuffer);
-			strcat(word + wordLength, codeBuffer);
-			wordLength = strlen(word);
-		//}
-	}
-	
-	struct stat buf;
-
-	int exists = stat(dirFileName, &buf);
-	
-	if (exists < 0) {
-		fprintf(stderr, "Error in printFileInfo\n");
-		//exit(1);
-	}
-	else {
-//		fwrite(buf.st_size, 8, 1, stdout);
-//		fwrite(word, 1, 1, stdout);
-		//printf("%d\n", buf.st_size);
-		printLittleEndian(buf.st_size, 8);
-		printString(word);
-		//printf(" %s", word);
-	}
-
-	fclose(file);
-}
-*/
-
-void printFileNameSize(const char *fileName) {
-	int size = strlen(fileName);
+void printFileNameSize(int fileNameSize) {
 	int i, j;	
 
-	//printf("%s %d: ", fileName, size);
 	for (i = 0; i < 4; i++) {
-		j = size & 0xFF;
-		size = size >> 8;
+		j = fileNameSize & 0xFF;
+		fileNameSize = fileNameSize >> 8;
 		fwrite(&j, 1, 1, stdout);
-		//printf("%02x ", j);
 	}
-
-	//printf("\n");
 }
 
 void printHexString(const char *string) {
-	//printf("%x\n", string);
 	fwrite(string, sizeof(char), strlen(string), stdout);
-	//printf("\n");
 }
 
 void printINode(unsigned long iNode) {
@@ -308,6 +253,17 @@ void printFileSize(const char *fileName) {
 
 void printBytes(const char *fileName) {
 	FILE *file = fopen(fileName, "r");
+	
+	if (file == NULL) {
+		fprintf(stderr, "Couldnt open %s\n", fileName);
+		exit(1);
+	}
+
+
+	// get size
+	// allocate memory
+	// read file
+	// write contents
 	int bufferSize = 10000;
 	char *codeBuffer = (char *) malloc(bufferSize * sizeof(char));
 	char *word = (char *) malloc(bufferSize * sizeof(char));
