@@ -9,17 +9,28 @@
 #include "dllist.h"
 
 void traverseDirectory(const char *fileName, JRB iNodeTree);
-//long getSize(const char *fileName);
 
-void printInfo(const char *dirFileName);
+//void printInfo(const char *dirFileName);
 
-void printNewInfo(const char *dirFileName);
+//void printNewInfo(const char *dirFileName);
 
-void printFileInfo(const char *dirFileName);
+//void printFileInfo(const char *dirFileName);
 
-void printString(const char *string);
+void printFileNameSize(const char *fileName);
 
-void printLittleEndian(int num, int size);
+void printHexString(const char *string);
+
+void printINode(unsigned long iNode);
+
+void printMode(unsigned short mode);
+
+void printModTime(long modTime);
+
+void printFileSize(const char *fileName);
+
+void printBytes(const char *fileName);
+
+//void printLittleEndian(int num, int size);
 
 int compare(Jval v1, Jval v2);
 
@@ -35,7 +46,6 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
-//long getSize(const char *fileName) {
 void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	DIR *d = opendir(fileName);
 	if (d == NULL) {
@@ -46,7 +56,7 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	struct dirent *de;
 	struct stat buf;
 	Dllist dirList = new_dllist();
-	long totalFileSize = 0;
+	int exists;
 
 	int fileNameSize = strlen(fileName);
 	int dirFileNameSize = fileNameSize + 10;
@@ -57,12 +67,24 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 		//exit(1);
 	}
 
-	printInfo(fileName);
-	printNewInfo(fileName);
+	//printInfo(fileName);
+	//printNewInfo(fileName);
 	
 	strcpy(dirFileName, fileName);
 	strcat(dirFileName + fileNameSize, "/");
-	
+
+	exists = stat(fileName, &buf);
+
+	if (exists < 0) {
+		fprintf(stderr, "Couldn't stat %s\n", fileName);
+	}
+	else {
+		printFileNameSize(fileName);
+		printHexString(fileName);
+		printINode(buf.st_ino);
+		printMode(buf.st_mode);			// Might have to check if first time seen
+		printModTime(buf.st_mtime);		// Might have to check if first time seen
+	}
 	//printf("fn size: %d\n", strlen(dirFileName));
 	//printf("fn: %s\n", dirFileName);
 	//printf("inode %d\n", buf.st_ino);
@@ -80,7 +102,7 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 		strcpy(dirFileName + fileNameSize + 1, de->d_name);
 //		printf("dirFileName 2: %s\n", dirFileName);
 
-		int exists = stat(dirFileName, &buf);
+		exists = stat(dirFileName, &buf);
 		if (exists < 0) {
 			fprintf(stderr, "Couldn't stat %s\n", de->d_name);
 			//exit(1);
@@ -92,7 +114,6 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 		JRB loc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
 
 		if (loc == NULL) {
-//		if (jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare) == NULL) {
 //			printf("Inserting %d into tree\n", buf.st_ino);
 			jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
 		}
@@ -104,10 +125,18 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 			dll_append(dirList, new_jval_s(strdup(dirFileName)));
 		}
 		else {
-			printInfo(dirFileName);
+			//printInfo(dirFileName);
+			printFileNameSize(dirFileName);
+			printHexString(dirFileName);
+			printINode(buf.st_ino);
+
 			if (loc == NULL) {
-				printNewInfo(dirFileName);
-				printFileInfo(dirFileName);
+				printMode(buf.st_mode);
+				printModTime(buf.st_mtime);
+				printFileSize(dirFileName);
+				printBytes(dirFileName);
+				//printNewInfo(dirFileName);
+				//printFileInfo(dirFileName);
 			}
 		}
 	}
@@ -121,7 +150,6 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	}
 
 	dll_traverse(tmp, dirList) {
-//		printf("Freeing %s\n", tmp->val.s);
 		free(tmp->val.s);
 	}
 	free_dllist(dirList);
@@ -130,6 +158,7 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 //	printf("Closed %s\n", fileName);
 }
 
+/*
 void printInfo(const char *dirFileName) {
 	struct stat buf;
 	int exists = stat(dirFileName, &buf);
@@ -144,7 +173,7 @@ void printInfo(const char *dirFileName) {
 		printLittleEndian(strlen(dirFileName), 4);
 		//printf("fn: %s\n", dirFileName);
 		//printf("Printing fileName\n");
-		//printf(" %s", dirFileName);
+		printf(" %s", dirFileName);
 		printString(dirFileName);
 		//printf("inode %d\n", buf.st_ino);
 		//printf("Printing inode\n");
@@ -203,25 +232,96 @@ void printFileInfo(const char *dirFileName) {
 
 	fclose(file);
 }
-
-void printString(const char *string) {
-	/*
-	int i = 0;
-	
-	while (*string) {
-		if (i != 0) {
-			printf(" ");
-		}
-		printf("%02x", (unsigned int) *string++);
-		i++;
-	}
-	printf("\n");
 */
+
+void printFileNameSize(const char *fileName) {
+	int size = strlen(fileName);
+	int i, j;	
+
+	//printf("%s %d: ", fileName, size);
+	for (i = 0; i < 4; i++) {
+		j = size & 0xFF;
+		size = size >> 8;
+		fwrite(&j, 1, 1, stdout);
+		//printf("%02x ", j);
+	}
+
+	//printf("\n");
+}
+
+void printHexString(const char *string) {
+	//printf("%x\n", string);
 	fwrite(string, sizeof(char), strlen(string), stdout);
 	//printf("\n");
 }
 
+void printINode(unsigned long iNode) {
+	int i, j;
+	
+	for (i = 0; i < 8; i++) {
+		j = iNode & 0xFF;
+		iNode = iNode >> 8;
+		fwrite(&j, 1, 1, stdout);
+	}
+}
 
+void printMode(unsigned short mode) {
+	int i, j;
+
+	for (i = 0; i < 4; i++) {
+		j = mode & 0xFF;
+		mode = mode >> 8;
+		fwrite(&j, 1, 1, stdout);
+	}
+}
+
+void printModTime(long modTime) {
+	int i, j;
+
+	for (i = 0; i < 8; i++) {
+		j = modTime & 0xFF;
+		modTime = modTime >> 8;
+		fwrite(&j, 1, 1, stdout);
+	}
+}
+
+void printFileSize(const char *fileName) {
+	FILE *file = fopen(fileName, "r");
+
+	if (file == NULL) {
+		fprintf(stderr, "Error opening %s\n", fileName);
+		exit(1);
+	}
+
+	fseek(file, 0, SEEK_END);
+	int fileSize = ftell(file);
+	fclose(file);
+	
+	int i, j;
+
+	for (i = 0; i < 8; i++) {
+		j = fileSize & 0xFF;
+		fileSize = fileSize >> 8;
+		fwrite(&j, 1, 1, stdout);
+	}
+}
+
+void printBytes(const char *fileName) {
+	FILE *file = fopen(fileName, "r");
+	int bufferSize = 10000;
+	char *codeBuffer = (char *) malloc(bufferSize * sizeof(char));
+	char *word = (char *) malloc(bufferSize * sizeof(char));
+	int wordLength = 0;
+	while (fread(codeBuffer, sizeof(char), 1, file) != 0) {
+		strcat(word + wordLength, codeBuffer);
+		wordLength = strlen(word);
+	}
+	fclose(file);
+	
+	printHexString(word);
+}
+
+/*
 void printLittleEndian(int num, int size) {
 	char *littleEndian = (char *) malloc(size * sizeof(char));
 	int stringLength = 0;
@@ -238,7 +338,7 @@ void printLittleEndian(int num, int size) {
 	}
 	//printf("\n");
 }
-
+*/
 
 int compare(Jval val1, Jval val2) {
 	if (val1.l < val2.l) {
