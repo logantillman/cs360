@@ -40,7 +40,7 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	DIR *d = opendir(fileName);
 	if (d == NULL) {
 		fprintf(stderr, "Couldn't open %s directory\n", fileName);
-		exit(1);
+		//exit(1);
 	}
 	
 	struct dirent *de;
@@ -53,8 +53,8 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 	char *dirFileName = (char *) malloc(sizeof(char) * dirFileNameSize);
 
 	if (dirFileName == NULL) {
-		perror("malloc error");
-		exit(1);
+		fprintf(stderr, "malloc error\n");
+		//exit(1);
 	}
 
 	printInfo(fileName);
@@ -83,7 +83,7 @@ void traverseDirectory(const char *fileName, JRB iNodeTree) {
 		int exists = stat(dirFileName, &buf);
 		if (exists < 0) {
 			fprintf(stderr, "Couldn't stat %s\n", de->d_name);
-			exit(1);
+			//exit(1);
 		}
 		else {
 //			printf("Opened %s\n", dirFileName);
@@ -136,7 +136,7 @@ void printInfo(const char *dirFileName) {
 
 	if (exists < 0) {
 		fprintf(stderr, "Error in printInfo\n");
-		exit(1);
+		//exit(1);
 	}
 	else {
 		//printf("\nfn size: %d\n", strlen(dirFileName));
@@ -158,7 +158,7 @@ void printNewInfo(const char *dirFileName) {
 
 	if (exists < 0) {
 		fprintf(stderr, "Error in printNewInfo\n");
-		exit(1);
+		//exit(1);
 	}
 	else {
 		//printf("mode: %x\n", buf.st_mode);
@@ -190,7 +190,7 @@ void printFileInfo(const char *dirFileName) {
 	
 	if (exists < 0) {
 		fprintf(stderr, "Error in printFileInfo\n");
-		exit(1);
+		//exit(1);
 	}
 	else {
 //		fwrite(buf.st_size, 8, 1, stdout);
