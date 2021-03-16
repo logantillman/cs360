@@ -8,26 +8,44 @@
 #include "jrb.h"
 #include "dllist.h"
 
+/* Struct for file information */
+typedef struct myStruct {
+	char *relativePath;
+	char *absolutePath;
+	struct stat buffer;
+} myStruct;
+
+/* Recursive function that traverses a directory and reads each item */
 void traverseDirectory(const char *fileName, JRB iNodeTree, char *relativePath);
 
+/* Finds the relative path given a pathname */
 char *findRelativePath(char *pathName);
 
+/* Prints the size of the file name in little endian */
 void printFileNameSize(int fileNameSize);
 
+/* Prints a string in hex */
 void printHexString(const char *string);
 
+/* Prints a file's inode in little endian */
 void printINode(unsigned long iNode);
 
+/* Prints a file's mode in little endian */
 void printMode(unsigned short mode);
 
+/* Prints a file's last modification time in little endian */
 void printModTime(long modTime);
 
-void printFileSize(const char *fileName);
+/* Prints a file's size in little endian */
+void printFileSize(long fileSize);
 
+/* Prints a file's bytes */
 void printBytes(const char *fileName);
 
-//void printLittleEndian(int num, int size);
+/* Function for initializing my file struct */
+myStruct * initializeStruct(char *relativePath, char *absolutePath, struct stat buffer);
 
+/* Function for comparing jvals */
 int compare(Jval v1, Jval v2);
 
 int main(int argc, char **argv) {
@@ -40,141 +58,115 @@ int main(int argc, char **argv) {
 	
 	char *tmp = strdup(argv[1]);
 	char *relativePath = findRelativePath(tmp);
-	//printf("%s %s\n", argv[1], relativePath);
+	
 	traverseDirectory(argv[1], iNodeTree, relativePath);
 
 	free(tmp);
 	return 0;
 }
 
+/* Recursive function that traverses a directory and reads each item */
 void traverseDirectory(const char *fileName, JRB iNodeTree, char *relativePath) {
 	DIR *d = opendir(fileName);
-	
-	/* If directory failed to open, print an error */
+
 	if (d == NULL) {
-		fprintf(stderr, "Couldn't open %s directory\n", fileName);
+		fprintf(stderr, "Couldn't open %s\n", fileName);
 		exit(1);
 	}
-	
+
+	Dllist dirList = new_dllist();
+	Dllist fileList = new_dllist();
 	struct dirent *de;
 	struct stat buf;
-	Dllist dirList = new_dllist();
+	myStruct *myStr;
+	myStruct *tmpStr;
 	int exists;
-
-	int fileNameSize = strlen(fileName);
-	int dirFileNameSize = fileNameSize + 10;
-	char *dirFileName = (char *) malloc(sizeof(char) * dirFileNameSize);
-
-	/* Error checking for failed malloc */
-	if (dirFileName == NULL) {
-		fprintf(stderr, "malloc error\n");
-		exit(1);
-	}
-
-	/* Printing out the info for the directory */
-	exists = stat(fileName, &buf);
-	if (exists < 0) {
-		fprintf(stderr, "Couldn't stat %s\n", fileName);
-		exit(1);
-	}
-
-	/* Printing mandatory information */
-	printFileNameSize(strlen(relativePath));
-	printHexString(relativePath);
-	printINode(buf.st_ino);
-
-	/* Printing if first time inode is seen */
-	JRB iNodeLoc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
-	if (iNodeLoc == NULL && S_ISDIR(buf.st_mode)) {
-		jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
-		printMode(buf.st_mode);
-		printModTime(buf.st_mtime);
-	}
-
-	/* Adding the / to the fileName */
-	strcpy(dirFileName, fileName);
-	strcat(dirFileName + fileNameSize, "/");
-
-	/* Reading everything in the directory */
-	for (de = readdir(d); de != NULL; de = readdir(d)) {
-		if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0) {
-			continue;
-		}
-
-		int sz = strlen(de->d_name);
-		if (dirFileNameSize < fileNameSize + sz + 2) {
-			dirFileNameSize = fileNameSize + sz + 10;
-			dirFileName = realloc(dirFileName, dirFileNameSize);
-		}
-		strcpy(dirFileName + fileNameSize + 1, de->d_name);
-
-		exists = stat(dirFileName, &buf);
-		if (exists < 0) {
-			fprintf(stderr, "Couldn't stat %s\n", de->d_name);
-			exit(1);
-		}
 		
-		/* Checking if the file inode already exists in the tree */
-		iNodeLoc = jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare);
-		if (iNodeLoc == NULL && !S_ISDIR(buf.st_mode)) {
-			jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
-		}
-
-		/* If it's a directory, add it to the list of directories to visit */
-		if (S_ISDIR(buf.st_mode) && strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0) {
-			dll_append(dirList, new_jval_s(strdup(dirFileName)));
-		}
+	char *newPath = (char *) malloc((strlen(fileName) + 258) * sizeof(char));
+	char *newRelativePath = (char *) malloc((strlen(relativePath) + 258) * sizeof(char));
 	
-		/* If it's a file, print out the necessary info */
-		else if (!S_ISDIR(buf.st_mode)) {
-			char *tmp = strdup(dirFileName);
-			char *fn = findRelativePath(tmp);
-			char *filePath = (char *) malloc((strlen(relativePath) + 1 + strlen(fn)) * sizeof(char));
-			strcpy(filePath, relativePath);
-			int filePathSize = strlen(filePath);
-			strcat(filePath + filePathSize, "/");
-			strcat(filePath + filePathSize + 1, fn);
-
-			printFileNameSize(strlen(filePath));
-			printHexString(filePath);
-			printINode(buf.st_ino);
-
-			if (iNodeLoc == NULL) {
-				printMode(buf.st_mode);
-				printModTime(buf.st_mtime);
-				printFileSize(dirFileName);
-				printBytes(dirFileName);
+	for (de = readdir(d); de != NULL; de = readdir(d)) {
+		if (strcmp(de->d_name, ".") == 0) {
+			exists = lstat(fileName, &buf);
+			if (exists < 0) {
+				fprintf(stderr, "%s doesn't exist\n", fileName);
+				exit(1);
 			}
-			free(tmp);
+			else {
+				if (jrb_find_gen(iNodeTree, new_jval_l(buf.st_ino), compare) == NULL) {
+					jrb_insert_gen(iNodeTree, new_jval_l(buf.st_ino), new_jval_i(0), compare);
+					
+					printFileNameSize(strlen(relativePath));
+					printHexString(relativePath);
+					printINode(buf.st_ino);
+					printMode(buf.st_mode);
+					printModTime(buf.st_mtime);
+				}
+				else {
+					printFileNameSize(strlen(relativePath));
+					printHexString(relativePath);
+					printINode(buf.st_ino);
+				}
+			}
+		}
+		else if (strcmp(de->d_name, "..") != 0) {
+			sprintf(newPath, "%s/%s", fileName, de->d_name);
+			sprintf(newRelativePath, "%s/%s", relativePath, de->d_name);
+
+			exists = lstat(newPath, &buf);
+			if (exists < 0) {
+				fprintf(stderr, "%s doesn't exist\n", newPath);
+				exit(1);
+			}
+			else {
+				myStr = initializeStruct(newRelativePath, newPath, buf);
+				if (S_ISDIR(buf.st_mode)) {
+					dll_append(dirList, new_jval_v((void *) myStr));
+				}
+				else {
+					dll_append(fileList, new_jval_v((void *) myStr));
+				}
+			}
 		}
 	}
-	
-	/* Close the current directory */
+
 	closedir(d);
-	
-	/* Recursively traverse the nested directories */
+
 	Dllist tmp;
-	dll_traverse(tmp, dirList) {
-		printf("%s Dir list: %s\n", relativePath, tmp->val.s);
-		int relativePathSize = strlen(relativePath);
-		strcat(relativePath + relativePathSize, "/");
-		char *tmpString = strdup(tmp->val.s);
-		strcat(relativePath + relativePathSize + 1, findRelativePath(tmpString));
-		printf("New dir: %s\n", relativePath);
-		free(tmpString);
-		traverseDirectory(tmp->val.s, iNodeTree, relativePath);
+	dll_traverse(tmp, fileList) {
+		tmpStr = (myStruct *) tmp->val.v;
+		printFileNameSize(strlen(tmpStr->relativePath));
+		printHexString(tmpStr->relativePath);
+		printINode(tmpStr->buffer.st_ino);
+
+		if (jrb_find_gen(iNodeTree, new_jval_l(tmpStr->buffer.st_ino), compare) == NULL) {
+			jrb_insert_gen(iNodeTree, new_jval_l(tmpStr->buffer.st_ino), new_jval_i(0), compare);
+		
+			printMode(tmpStr->buffer.st_mode);
+			printModTime(tmpStr->buffer.st_mtime);
+			printFileSize(tmpStr->buffer.st_size);
+			printBytes(tmpStr->absolutePath);
+		}
+		free(tmpStr->relativePath);
+		free(tmpStr->absolutePath);
+		free(tmpStr);
 	}
 
-	/* Free all of the directories in the list */
 	dll_traverse(tmp, dirList) {
-		free(tmp->val.s);
+		tmpStr = (myStruct *) tmp->val.v;
+		traverseDirectory(tmpStr->absolutePath, iNodeTree, tmpStr->relativePath);
+		free(tmpStr->relativePath);
+		free(tmpStr->absolutePath);
+		free(tmpStr);
 	}
 
-	/* Free the memory allocated for the list and the directory file name */
+	free(newPath);
+	free(newRelativePath);
+	free_dllist(fileList);
 	free_dllist(dirList);
-	free(dirFileName);
 }
 
+/* Finds the relative path given a pathname */
 char *findRelativePath(char *pathName) {
 	char *foundSlash = strtok(pathName, "/");
 	char *relative;
@@ -186,6 +178,7 @@ char *findRelativePath(char *pathName) {
 	return relative;
 }
 
+/* Prints the size of the file name in little endian */
 void printFileNameSize(int fileNameSize) {
 	int i, j;	
 
@@ -230,20 +223,8 @@ void printModTime(long modTime) {
 	}
 }
 
-void printFileSize(const char *fileName) {
-	FILE *file = fopen(fileName, "r");
-
-	if (file == NULL) {
-		fprintf(stderr, "Error opening %s\n", fileName);
-		exit(1);
-	}
-
-	fseek(file, 0, SEEK_END);
-	int fileSize = ftell(file);
-	fclose(file);
-	
+void printFileSize(long fileSize) {
 	int i, j;
-
 	for (i = 0; i < 8; i++) {
 		j = fileSize & 0xFF;
 		fileSize = fileSize >> 8;
@@ -259,42 +240,27 @@ void printBytes(const char *fileName) {
 		exit(1);
 	}
 
+	fseek(file, 0, SEEK_END);
 
-	// get size
-	// allocate memory
-	// read file
-	// write contents
-	int bufferSize = 10000;
-	char *codeBuffer = (char *) malloc(bufferSize * sizeof(char));
-	char *word = (char *) malloc(bufferSize * sizeof(char));
-	int wordLength = 0;
-	while (fread(codeBuffer, sizeof(char), 1, file) != 0) {
-		strcat(word + wordLength, codeBuffer);
-		wordLength = strlen(word);
-	}
-	fclose(file);
+	long size = ftell(file);
+	rewind(file);
 	
-	printHexString(word);
+	char *buf = (char *) malloc((size + 1) * sizeof(char));
+
+	fread(buf, size, 1, file);
+	fwrite(buf, 1, size, stdout);
+	fclose(file);
+	free(buf);
 }
 
-/*
-void printLittleEndian(int num, int size) {
-	char *littleEndian = (char *) malloc(size * sizeof(char));
-	int stringLength = 0;
-	int i, j;
-	int mask;
+myStruct * initializeStruct(char *relativePath, char *absolutePath, struct stat buffer) {
+	myStruct *str = malloc(sizeof(myStruct));
+	str->relativePath = strdup(relativePath);
+	str->absolutePath = strdup(absolutePath);
+	str->buffer = buffer;
 
-	for (i = 0; i < size; i++) {
-		//printf("Stuck here\n");
-		//printf(" %u", num & 0xFF);
-		j = num & 0xFF;
-		num = num >> 8;
-		//printf("%02x ", j);
-		fwrite(&j, 1, 1, stdout);
-	}
-	//printf("\n");
+	return str;
 }
-*/
 
 int compare(Jval val1, Jval val2) {
 	if (val1.l < val2.l) {
