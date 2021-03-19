@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include "jrb.h"
 
 int readFileNameSize();
 
@@ -17,28 +19,64 @@ long readFileSize();
 
 char *readBytes(long fileSize);
 
+int compare(Jval v1, Jval v2);
+
 int main() {
-	
-	int fileNameSize = readFileNameSize();
-	printf("fnSize: %d\n", fileNameSize);
-	
-	char *fileName = readFileName(fileNameSize);
-	printf("fn: %s\n", fileName);
+	JRB iNodeTree = make_jrb();
 
-	long iNode = readINode();
-	printf("iNode: %d\n", iNode);
+	while (1) {
+		int fileNameSize = readFileNameSize();
 
-	int mode = readMode();
-	printf("mode: %d\n", mode);
-	
-	long modTime = readModTime();
-	printf("modTime: %d\n", modTime);
+		if (fileNameSize == -1) {
+			break;
+		}
+		// printf("\nfnSize: %d\n", fileNameSize);
+		
+		char *fileName = readFileName(fileNameSize);
+		// printf("fn: %s\n", fileName);
 
-	long fileSize = readFileSize();
-	printf("fileSize: %d\n", fileSize);
+		long iNode = readINode();
+		// printf("iNode: %d\n", iNode);
 
-	char *bytes = readBytes(fileSize);
-	printf("bytes: %s\n", bytes);
+		if (jrb_find_gen(iNodeTree, new_jval_l(iNode), compare) == NULL) {
+		jrb_insert_gen(iNodeTree, new_jval_l(iNode), new_jval_i(0), compare);
+		// printf("New jrb\n");
+		}
+		else {
+			// printf("Jrb already exists\n");
+		}
+
+		int mode = readMode();
+		// printf("mode: %d\n", mode);
+
+		long modTime = readModTime();
+		// printf("modTime: %d\n", modTime);
+
+		printf("Mode %d Mtime %d\nName: %s\n\n", mode, modTime, fileName);
+
+		if (S_ISDIR(mode)) {
+			// printf("is directory\n");
+			if (mkdir(fileName, mode) == -1) {
+				fprintf(stderr, "Failed to create directory %s\n", fileName);
+			}
+		}
+		else {
+			// printf("is file\n");
+			long fileSize = readFileSize();
+			// printf("fileSize: %d\n", fileSize);
+
+			char *bytes = readBytes(fileSize);
+			// printf("bytes: %s\n", bytes);
+
+			FILE *file = fopen(fileName, "w");
+			if (file == NULL) {
+				fprintf(stderr, "Error creating %s\n", fileName);
+				exit(1);
+			}
+			fwrite(bytes, 1, fileSize, file);
+			fclose(file);
+		}
+	}
 
 	return 0;
 }
@@ -46,7 +84,9 @@ int main() {
 int readFileNameSize() {
 	int fileNameSize, i;
 
-	fread(&fileNameSize, sizeof(int), 1, stdin);
+	if(!fread(&fileNameSize, sizeof(int), 1, stdin)) {
+		return -1;
+	}
 	
 	return fileNameSize;
 }
@@ -58,7 +98,10 @@ char *readFileName(int fnSize) {
 
 	fileName[fnSize] = '\0';
 	for (i = 0; i < fnSize; i++) {
-		fread(&temp, 1, 1, stdin);
+		if(!fread(&temp, 1, 1, stdin)) {
+			fprintf(stderr, "Error reading in file name\n");
+			exit(1);
+		}
 		fileName[i] = temp;
 	}
 
@@ -102,13 +145,20 @@ char *readBytes(long fileSize) {
 	char temp;
 	int i;
 
-	printf("BYTES - fSize: %d\n", fileSize);
+	// printf("BYTES - fSize: %d\n", fileSize);
 	bytes[fileSize] = '\0';
 	for (i = 0; i < fileSize; i++) {
-		printf("BYTES - made it here (i = %d)\n", i);
+		// printf("BYTES - made it here (i = %d)\n", i);
 		fread(&temp, 1, 1, stdin);
 		bytes[i] = temp;
 	}
 	
 	return bytes;
+}
+
+int compare(Jval v1, Jval v2)           /* Adding a comparison function for inodes. */
+{
+  if (v1.l < v2.l) return -1;
+  if (v1.l > v2.l) return 1;
+  return 0;
 }
