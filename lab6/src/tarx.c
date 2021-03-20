@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include "jrb.h"
 
 int readFileNameSize();
@@ -50,15 +51,16 @@ int main() {
 		// printf("mode: %d\n", mode);
 
 		long modTime = readModTime();
-		// printf("modTime: %d\n", modTime);
+		printf("modTime: %d\n", modTime);
 
-		printf("Mode %d Mtime %d\nName: %s\n\n", mode, modTime, fileName);
+		// printf("Mode %d Mtime %d\nName: %s\n\n", mode, modTime, fileName);
 
 		if (S_ISDIR(mode)) {
 			// printf("is directory\n");
 			if (mkdir(fileName, mode) == -1) {
 				fprintf(stderr, "Failed to create directory %s\n", fileName);
 			}
+			chmod(fileName, mode);
 		}
 		else {
 			// printf("is file\n");
@@ -73,9 +75,27 @@ int main() {
 				fprintf(stderr, "Error creating %s\n", fileName);
 				exit(1);
 			}
+			chmod(fileName, mode);
 			fwrite(bytes, 1, fileSize, file);
+
 			fclose(file);
 		}
+
+		struct timeval timeArray[2];
+		gettimeofday(&timeArray[0], NULL);
+		timeArray[0].tv_usec = 0;
+		timeArray[1].tv_sec = modTime;
+		timeArray[1].tv_usec = 0;
+		if (utimes(fileName, timeArray) == -1) {
+			fprintf(stderr, "Error with utimes\n");
+		}
+		else {
+			printf("Calling utimes on %s\n", fileName);		
+			printf("Curr - %d %d\n", timeArray[0].tv_sec, timeArray[0].tv_usec);
+			printf("ModTime - %d %d\n", timeArray[1].tv_sec, timeArray[1].tv_usec);
+		}
+		// Add filename and modTime to dll and set mod time after this loop
+
 	}
 
 	return 0;
