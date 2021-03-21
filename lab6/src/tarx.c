@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <string.h>
 #include "jrb.h"
+#include "dllist.h"
 
 int readFileNameSize();
 
@@ -24,6 +26,8 @@ int compare(Jval v1, Jval v2);
 
 int main() {
 	JRB iNodeTree = make_jrb();
+	Dllist fnList = new_dllist();
+	Dllist timeList = new_dllist();
 
 	while (1) {
 		int fileNameSize = readFileNameSize();
@@ -34,17 +38,21 @@ int main() {
 		// printf("\nfnSize: %d\n", fileNameSize);
 		
 		char *fileName = readFileName(fileNameSize);
-		// printf("fn: %s\n", fileName);
+		printf("\nFOR: %s\n", fileName);
 
 		long iNode = readINode();
 		// printf("iNode: %d\n", iNode);
 
-		if (jrb_find_gen(iNodeTree, new_jval_l(iNode), compare) == NULL) {
-		jrb_insert_gen(iNodeTree, new_jval_l(iNode), new_jval_i(0), compare);
+		JRB foundINode = jrb_find_gen(iNodeTree, new_jval_l(iNode), compare);
+
+		if (foundINode == NULL) {
+			jrb_insert_gen(iNodeTree, new_jval_l(iNode), new_jval_s(strdup(fileName)), compare);
 		// printf("New jrb\n");
 		}
 		else {
-			// printf("Jrb already exists\n");
+			// printf("Jrb already exists %s\n", foundINode->val.s);
+			link(foundINode->val.s, fileName);
+			continue;
 		}
 
 		int mode = readMode();
@@ -56,14 +64,15 @@ int main() {
 		// printf("Mode %d Mtime %d\nName: %s\n\n", mode, modTime, fileName);
 
 		if (S_ISDIR(mode)) {
-			// printf("is directory\n");
+			printf("Is Directory\n");
 			if (mkdir(fileName, mode) == -1) {
 				fprintf(stderr, "Failed to create directory %s\n", fileName);
+				exit(1);
 			}
 			chmod(fileName, mode);
 		}
 		else {
-			// printf("is file\n");
+			printf("Is File\n");
 			long fileSize = readFileSize();
 			// printf("fileSize: %d\n", fileSize);
 
@@ -75,29 +84,56 @@ int main() {
 				fprintf(stderr, "Error creating %s\n", fileName);
 				exit(1);
 			}
+			printf("inode = %d\n", iNode);
 			chmod(fileName, mode);
 			fwrite(bytes, 1, fileSize, file);
 
 			fclose(file);
 		}
 
-		struct timeval timeArray[2];
+		struct timeval *timeArray = (struct timeval *) malloc(2 * sizeof(struct timeval));
+		// struct timeval timeArray[2];
 		gettimeofday(&timeArray[0], NULL);
 		timeArray[0].tv_usec = 0;
 		timeArray[1].tv_sec = modTime;
 		timeArray[1].tv_usec = 0;
-		if (utimes(fileName, timeArray) == -1) {
-			fprintf(stderr, "Error with utimes\n");
-		}
-		else {
-			printf("Calling utimes on %s\n", fileName);		
-			printf("Curr - %d %d\n", timeArray[0].tv_sec, timeArray[0].tv_usec);
-			printf("ModTime - %d %d\n", timeArray[1].tv_sec, timeArray[1].tv_usec);
-		}
+		dll_append(fnList, new_jval_s(strdup(fileName)));
+		dll_append(timeList, new_jval_v((void *) timeArray));
+		// if (utimes(fileName, timeArray) == -1) {
+		// 	fprintf(stderr, "Error with utimes\n");
+		// }
+		// else {
+		// 	printf("Calling utimes on %s\n", fileName);		
+		// 	printf("Curr - %d %d\n", timeArray[0].tv_sec, timeArray[0].tv_usec);
+		// 	printf("ModTime - %d %d\n", timeArray[1].tv_sec, timeArray[1].tv_usec);
+		// }
 		// Add filename and modTime to dll and set mod time after this loop
 
 	}
 
+	Dllist fnIt = dll_last(fnList);
+	Dllist timeIt = dll_last(timeList);
+
+	printf("Traversing lists\n");
+	while(fnIt != dll_nil(fnList) && timeIt != dll_nil(timeList)) {
+		struct timeval *tmpStruct = (struct timeval *) timeIt->val.v;
+		// printf("%s %d %d\n", fnIt->val.s, tmpStruct[0].tv_sec, tmpStruct[1].tv_sec);
+
+		if (utimes(fnIt->val.s, tmpStruct) == -1) {
+			fprintf(stderr, "Error with utimes\n");
+			exit(1);
+		}
+
+		fnIt = fnIt->blink;
+		timeIt = timeIt->blink;
+	}
+
+	// dll_rtraverse(tmp, fnList) printf("fnList: %s\n", tmp->val.s);
+
+	// dll_rtraverse(tmp, timeList) {
+	// 	struct timeval *tmpStruct = (struct timeval *) tmp->val.v;
+	// 	printf("timeList: %d %d\n", tmpStruct[0].tv_sec, tmpStruct[1].tv_sec);
+	// }
 	return 0;
 }
 
@@ -147,7 +183,10 @@ int readMode() {
 long readModTime() {
 	long modTime;
 
-	fread(&modTime, sizeof(long), 1, stdin);
+	if(!fread(&modTime, sizeof(long), 1, stdin)) {
+		fprintf(stderr, "Error reading modTime\n");
+		exit(1);
+	}
 
 	return modTime;
 }
