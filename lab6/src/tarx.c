@@ -28,6 +28,7 @@ int main() {
 	JRB iNodeTree = make_jrb();
 	Dllist fnList = new_dllist();
 	Dllist timeList = new_dllist();
+	Dllist modeList = new_dllist();
 
 	while (1) {
 		int fileNameSize = readFileNameSize();
@@ -56,7 +57,7 @@ int main() {
 		}
 
 		int mode = readMode();
-		// printf("mode: %d\n", mode);
+		printf("mode: %d\n", mode);
 
 		long modTime = readModTime();
 		printf("modTime: %d\n", modTime);
@@ -65,11 +66,11 @@ int main() {
 
 		if (S_ISDIR(mode)) {
 			printf("Is Directory\n");
-			if (mkdir(fileName, mode) == -1) {
+			if (mkdir(fileName, 0777) == -1) {
 				fprintf(stderr, "Failed to create directory %s\n", fileName);
 				exit(1);
 			}
-			chmod(fileName, mode);
+			// chmod(fileName, mode);
 		}
 		else {
 			printf("Is File\n");
@@ -81,11 +82,13 @@ int main() {
 
 			FILE *file = fopen(fileName, "w");
 			if (file == NULL) {
-				fprintf(stderr, "Error creating %s\n", fileName);
+				perror("fopen");
+				// fprintf(stderr, "Error creating %s\n", fileName);
 				exit(1);
+				continue;
 			}
 			printf("inode = %d\n", iNode);
-			chmod(fileName, mode);
+			// chmod(fileName, mode);
 			fwrite(bytes, 1, fileSize, file);
 
 			fclose(file);
@@ -99,6 +102,7 @@ int main() {
 		timeArray[1].tv_usec = 0;
 		dll_append(fnList, new_jval_s(strdup(fileName)));
 		dll_append(timeList, new_jval_v((void *) timeArray));
+		dll_append(modeList, new_jval_i(mode));
 		// if (utimes(fileName, timeArray) == -1) {
 		// 	fprintf(stderr, "Error with utimes\n");
 		// }
@@ -113,19 +117,22 @@ int main() {
 
 	Dllist fnIt = dll_last(fnList);
 	Dllist timeIt = dll_last(timeList);
+	Dllist modeIt = dll_last(modeList);
 
 	printf("Traversing lists\n");
 	while(fnIt != dll_nil(fnList) && timeIt != dll_nil(timeList)) {
 		struct timeval *tmpStruct = (struct timeval *) timeIt->val.v;
 		// printf("%s %d %d\n", fnIt->val.s, tmpStruct[0].tv_sec, tmpStruct[1].tv_sec);
-
+		// printf("modeList: %d\n", modeIt->val.i);
 		if (utimes(fnIt->val.s, tmpStruct) == -1) {
 			fprintf(stderr, "Error with utimes\n");
 			exit(1);
 		}
+		chmod(fnIt->val.s, modeIt->val.i);
 
 		fnIt = fnIt->blink;
 		timeIt = timeIt->blink;
+		modeIt = modeIt->blink;
 	}
 
 	// dll_rtraverse(tmp, fnList) printf("fnList: %s\n", tmp->val.s);
