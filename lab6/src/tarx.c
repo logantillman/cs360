@@ -174,7 +174,10 @@ char *readFileName(int fnSize) {
 long readINode() {
 	long iNode;
 
-	fread(&iNode, sizeof(long), 1, stdin);
+	if(!fread(&iNode, sizeof(long), 1, stdin)) {
+		fprintf(stderr, "Couldn't read iNode\n");
+		exit(1);
+	}
 
 	return iNode;
 }
@@ -201,7 +204,10 @@ long readModTime() {
 long readFileSize() {
 	long fileSize;
 
-	fread(&fileSize, sizeof(long), 1, stdin);
+	if(!fread(&fileSize, sizeof(long), 1, stdin)) {
+		fprintf(stderr, "Couldn't read file size\n");
+		exit(1);
+	}
 
 	return fileSize;
 }
@@ -215,7 +221,10 @@ char *readBytes(long fileSize) {
 	bytes[fileSize] = '\0';
 	for (i = 0; i < fileSize; i++) {
 		// printf("BYTES - made it here (i = %d)\n", i);
-		fread(&temp, 1, 1, stdin);
+		if(!fread(&temp, 1, 1, stdin)) {
+			fprintf(stderr, "Error reading bytes\n");
+			exit(1);
+		}
 		bytes[i] = temp;
 	}
 	
