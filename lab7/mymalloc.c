@@ -226,7 +226,7 @@ void coalesce_free_list() {
     void *numIt = free_list_begin();
 
     while (numIt != NULL) {
-        printf("%08x\n", numIt);
+        // printf("%08x\n", numIt);
         size++;
         numIt = free_list_next(numIt);
     }
@@ -244,54 +244,60 @@ void coalesce_free_list() {
     qsort(nodeArray, size, 4, compare);
 
     for (i = 0; i < size; i++) {
-        struct chunk *tmp = (struct chunk *) nodeArray[i];
-        printf("        %08x %d\n", nodeArray[i], tmp->size);
-    }
+        struct chunk *curr = (struct chunk *) nodeArray[i];
 
-    for (i = 1; i < size; i+=2) {
-        struct chunk *firstNode = nodeArray[i - 1];
-        struct chunk *secondNode = nodeArray[i];
-
-        if ((void *) firstNode + firstNode->size == secondNode) {
-            printf("CONTIGUOUS\n");
-            printf("firstNode %08x %d %08x\n", firstNode, firstNode->size, (void *) firstNode + firstNode->size);
-            printf("secondNode %08x %d %08x\n", secondNode, secondNode->size, (void *) secondNode + secondNode->size);
-            firstNode->size += secondNode->size;
-            firstNode->next = secondNode->next;
-            printf("after %08x %d %08x\n", firstNode, firstNode->size, (void *) firstNode + firstNode->size);
-
-            for (j = i + 1; j < size; j++) {
-                struct chunk *nextNode = nodeArray[j];
-
-                if ((void *) firstNode + firstNode->size == nextNode) {
-                    printf("Another continguous\n");
-                    firstNode->size += nextNode->size;
-                    firstNode->next = nextNode->next;
-                    printf("AC firstNode %08x %d %08x\n", firstNode, firstNode->size, (void *) firstNode + firstNode->size);
-                }
-                else {
-                    break;
-                }
-            }
+        if ((i - 1) >= 0) {
+            struct chunk *prev = (struct chunk *) nodeArray[i - 1];
+            curr->prev = prev;
+        }
+        else {
+            curr->prev = NULL;
+            head = curr;
         }
 
-        // if (i == 1) {
-        //     head = firstNode;
-        // }
-    }
-
-    void *it = free_list_begin();
-
-    while (it != NULL) {
-        struct chunk *rand = (struct chunk *) it;
-        printf("S: %08x %d\n", it, rand->size);
-        if (rand->prev != NULL) {
-            if ((void *) rand->prev + rand->prev->size == rand) {
-                printf("Another contiguous :(\n");
-            }
+        if ((i + 1) < size) {
+            struct chunk *next = (struct chunk *) nodeArray[i + 1];
+            curr->next = next;
         }
-        it = free_list_next(it);
+        else {
+            curr->next = NULL;
+        }
     }
+
+    void *firstNode = free_list_begin();
+
+    while (firstNode != NULL) {
+        struct chunk *firstNodeChunk = (struct chunk *) firstNode;
+        void *nextNode = free_list_next(firstNode);
+
+        while (nextNode != NULL) {
+            if (firstNode + firstNodeChunk->size == nextNode) {
+                struct chunk *nextNodeChunk = (struct chunk *) nextNode;
+                firstNodeChunk->size += nextNodeChunk->size;
+                firstNodeChunk->next = nextNodeChunk->next;
+            }
+            else {
+                break;
+            }
+
+            nextNode = free_list_next(nextNode);
+        }
+
+        firstNode = free_list_next(firstNode);
+    }
+
+    // void *it = free_list_begin();
+
+    // while (it != NULL) {
+    //     struct chunk *rand = (struct chunk *) it;
+    //     printf("S: %08x %d\n", it, rand->size);
+    //     if (rand->prev != NULL) {
+    //         if ((void *) rand->prev + rand->prev->size == rand) {
+    //             printf("Another contiguous :(\n");
+    //         }
+    //     }
+    //     it = free_list_next(it);
+    // }
 
     free(nodeArray);
 }
