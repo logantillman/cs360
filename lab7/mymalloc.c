@@ -4,7 +4,7 @@
 #include <string.h>
 #include "mymalloc.h"
 
-/* Struct for storing the chunk */
+/* Struct for storing the chunk data */
 struct chunk {
     int size;
     struct chunk *next;
@@ -186,12 +186,12 @@ void my_free(void *ptr) {
 
     /* If free list is empty, this chunk is the head */
     if (head == NULL) {
-        head = (struct chunk *) ptr;
+        head = tmpPtr;
         head->next = NULL;
         head->prev = NULL;
     }
 
-    /* If the list is not empty, add this chunk  */
+    /* If the list is not empty, move the current head back and set this chunk as the head */
     else {
         head->prev = tmpPtr;
         tmpPtr->next = head;
@@ -220,32 +220,36 @@ void *free_list_next(void *node) {
     }
 }
 
-/* Function that combines continuous chunks of memory */
+/* Function that combines contiguous chunks of memory */
 void coalesce_free_list() {
     int size = 0;
     void *numIt = free_list_begin();
 
+    /* Grabbing the number of chunks in the free list */
     while (numIt != NULL) {
-        // printf("%08x\n", numIt);
         size++;
         numIt = free_list_next(numIt);
     }
 
+    /* Allocating memory for an array of the chunk pointers */
     void **nodeArray = malloc(size * sizeof(void *));
+    int i;
 
-    int i, j;
-
+    /* Populating the chunk pointer array */
     numIt = free_list_begin();
     for (i = 0; i < size; i++) {
         nodeArray[i] = numIt;
         numIt = free_list_next(numIt);
     }
 
+    /* Sorting the chunk pointers */
     qsort(nodeArray, size, 4, compare);
 
+    /* Setting the free list links to match the sorted pointer array */
     for (i = 0; i < size; i++) {
         struct chunk *curr = (struct chunk *) nodeArray[i];
 
+        /* Setting the previous node on the free list to the closest chunk of memory that comes before the current chunk */
         if ((i - 1) >= 0) {
             struct chunk *prev = (struct chunk *) nodeArray[i - 1];
             curr->prev = prev;
@@ -255,6 +259,7 @@ void coalesce_free_list() {
             head = curr;
         }
 
+        /* Setting the next node on the free list to the closest chunk of memory that comes after the current chunk */
         if ((i + 1) < size) {
             struct chunk *next = (struct chunk *) nodeArray[i + 1];
             curr->next = next;
@@ -264,12 +269,17 @@ void coalesce_free_list() {
         }
     }
 
+    /* Freeing the node array because we don't need it anymore */
+    free(nodeArray);
+
     void *firstNode = free_list_begin();
 
+    /* Finding which chunks are contiguous and combining them */
     while (firstNode != NULL) {
         struct chunk *firstNodeChunk = (struct chunk *) firstNode;
         void *nextNode = free_list_next(firstNode);
 
+        /* Combining chunks until we come across a chunk that isn't contiguous */
         while (nextNode != NULL) {
             if (firstNode + firstNodeChunk->size == nextNode) {
                 struct chunk *nextNodeChunk = (struct chunk *) nextNode;
@@ -285,19 +295,4 @@ void coalesce_free_list() {
 
         firstNode = free_list_next(firstNode);
     }
-
-    // void *it = free_list_begin();
-
-    // while (it != NULL) {
-    //     struct chunk *rand = (struct chunk *) it;
-    //     printf("S: %08x %d\n", it, rand->size);
-    //     if (rand->prev != NULL) {
-    //         if ((void *) rand->prev + rand->prev->size == rand) {
-    //             printf("Another contiguous :(\n");
-    //         }
-    //     }
-    //     it = free_list_next(it);
-    // }
-
-    free(nodeArray);
 }
