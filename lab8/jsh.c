@@ -8,6 +8,7 @@
 int main(int argc, char **argv) {
     char *prompt;
     int status;
+    pid_t childPid;
 
     if (argc > 1) {
         prompt = argv[1];
@@ -24,32 +25,54 @@ int main(int argc, char **argv) {
     IS is = new_inputstruct(NULL);
 
     while (get_line(is) >= 0) {
-        // printf("%s %s\n", prompt, is->text1);
+        // printf("Got line: %s\n", is->text1);
 
         if (strcmp(is->text1, "exit\n") == 0 || strcmp(is->text1, "CNTL-D\n") == 0) {
             printf("Made it here");
             return 1;
         }
 
-        if (is->NF > 1) {
+        if (is->NF > 0) {
             int i;
-            printf("Printing fields\n");
-            for (i = 0; i < is->NF; i++) {
-                printf("[%s] ", is->fields[i]);
+            int shouldWait = 1;
+            
+            /* Checking for an ampersand to see if we should wait on child task to finish */
+            if (strcmp(is->fields[is->NF-1], "&") == 0) {
+                shouldWait = 0;
             }
-            printf("\n");
-            // printf("oi\n");
-            if (fork() == 0) {
-                // printf("yizzy wizzy yo\n");
-                // printf("%s %s\n", is->fields[0], is->fields+1);
-                execvp(is->fields[0], is->fields);
-                perror("command1");
+
+            /* Storing if the string contains an ampersand */
+            int containsAmp = !shouldWait;
+
+            if ((childPid = fork()) == 0) {
+                char **newFields = NULL;
+
+                if (containsAmp) {
+                    newFields = is->fields;
+                    newFields[is->NF-1] = NULL;
+                }
+                else {
+                    newFields = (char **) malloc((is->NF + 1) * sizeof(char *));
+                    newFields = is->fields;
+                    newFields[is->NF] = NULL;
+                }
+
+                // execvp(is->fields[0], is->fields);
+                // perror(is->fields[0]);
+                // printf("%s\n", newFields[0]);
+                execvp(newFields[0], newFields);
+                perror(newFields[0]);
                 exit(1);
+
+                free(newFields);
             }
             else {
                 // printf("yizzy yo\n");
-                if (strcmp(is->fields[is->NF-1], "&") != 0) {
-                    wait(&status);
+                if (shouldWait) {
+                    int rv = 0;
+                    while (rv != childPid) {
+                        rv = wait(&status);
+                    }
                 }
             }
 
