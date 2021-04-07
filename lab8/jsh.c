@@ -8,7 +8,7 @@
 int main(int argc, char **argv) {
     char *prompt;
     int status;
-    pid_t childPid;
+    pid_t childPid, wpid;
 
     if (argc > 1) {
         prompt = argv[1];
@@ -40,39 +40,35 @@ int main(int argc, char **argv) {
             if (strcmp(is->fields[is->NF-1], "&") == 0) {
                 shouldWait = 0;
             }
-
+            
             /* Storing if the string contains an ampersand */
             int containsAmp = !shouldWait;
 
             if ((childPid = fork()) == 0) {
-                char **newFields = NULL;
 
+                /* If there's an ampersand, we just change it to NULL */
                 if (containsAmp) {
-                    newFields = is->fields;
-                    newFields[is->NF-1] = NULL;
+                    is->fields[is->NF-1] = NULL;
                 }
+
+                /* If there isn't an ampersand, we change the next free index to NULL */
                 else {
-                    newFields = (char **) malloc((is->NF + 1) * sizeof(char *));
-                    newFields = is->fields;
-                    newFields[is->NF] = NULL;
+                    is->fields[is->NF] = NULL;
                 }
 
-                // execvp(is->fields[0], is->fields);
-                // perror(is->fields[0]);
-                // printf("%s\n", newFields[0]);
-                execvp(newFields[0], newFields);
-                perror(newFields[0]);
+                execvp(is->fields[0], is->fields);
+                perror(is->fields[0]);
                 exit(1);
-
-                free(newFields);
             }
+
+            /* For the parent process */
             else {
-                // printf("yizzy yo\n");
+
+                /* Waiting if there was no ampersand specified */
                 if (shouldWait) {
-                    int rv = 0;
-                    while (rv != childPid) {
-                        rv = wait(&status);
-                    }
+
+                    /* Waiting until the child process finishes (wpid variable for error checking) */
+                    while ((wpid = wait(&status)) != childPid);
                 }
             }
 
